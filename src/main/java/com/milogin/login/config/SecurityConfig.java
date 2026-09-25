@@ -116,15 +116,28 @@ public class SecurityConfig {
 
                 // Reglas de autorización por ruta.
                 // El orden IMPORTA: la primera coincidencia gana.
+                // Aplicamos autorización por URL aquí (grupo) y por método
+                // con @PreAuthorize en los controladores (endpoint concreto).
+                // Es defensa en profundidad: si alguien olvida una regla aquí,
+                // @PreAuthorize sigue protegiendo el endpoint.
                 .authorizeHttpRequests(auth -> auth
-                        // Rutas públicas: login y logout no requieren estar autenticado.
+                        // 1. Rutas públicas de autenticación.
                         .requestMatchers("/api/auth/login", "/api/auth/logout").permitAll()
-                        // /me requiere estar autenticado (lo dice explícitamente).
-                        // Las reglas por rol las añadiremos en la Fase 4.
                         .requestMatchers("/api/auth/me").authenticated()
-                        // Todo lo demás requiere autenticación por defecto.
-                        // Esto es más seguro que permitir todo y luego proteger
-                        // rutas específicas (whitelist vs blacklist).
+
+                        // 2. Rutas de ADMIN: solo el rol ROLE_ADMIN.
+                        // Precede a las demás porque es la más específica.
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // 3. Rutas de EMPRENDEDOR: ROLE_EMPRENDEDOR o ROLE_ADMIN.
+                        // El admin puede ver todo lo del emprendedor (superusuario).
+                        .requestMatchers("/api/emprendedor/**").hasAnyRole("EMPRENDEDOR", "ADMIN")
+
+                        // 4. Rutas de USUARIO normal: cualquiera de los 3 roles.
+                        .requestMatchers("/api/usuario/**").hasAnyRole("USER", "EMPRENDEDOR", "ADMIN")
+
+                        // 5. Cualquier otra ruta no listada requiere estar
+                        //    autenticado (whitelist estricta).
                         .anyRequest().authenticated()
                 )
 
